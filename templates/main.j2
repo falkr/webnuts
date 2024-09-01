@@ -21,10 +21,20 @@
             {% for question in range(1, MAX_QUESTIONS + 1) %}
                 <div class="col-4">
                     <div class="tile">
-                        <button class="btn btn-primary" onclick="transition('questionMenu', 'q{{question}}', 'forward')">{{ question }}</button>
+                        <button class="btn btn-primary" onclick="transition('questionMenu', 'q{{question}}', 'forward')">
+                        <div>{{ question }}</div>
+                            <div class="circles">
+                                <div class="circle"><i class="bi bi-x"></i></div>
+                                <div class="circle"><i class="fas fa-times"></i></div>
+                                <div class="circle"><i class="fas fa-times"></i></div>
+                            </div>
+                        </button>
                     </div>
                 </div>
             {% endfor %}
+            <div class="info">
+                <p>Select a question to solve it.</p>
+            </div>
         </div>
     </div>
     </div>
@@ -32,15 +42,33 @@
 {# Question pages #}
 {% for question in range(1, MAX_QUESTIONS + 1) %}
     <div id="q{{question}}" class="fullscreen-div">
-        <h3>Question {{ question }}</h3>
-        <button class="btn btn-primary rounded-circle" onclick="transition('q{{question}}', 'questionMenu','back')">
-            <i class="bi bi-arrow-left"></i>
-        </button>
         <div class="container text-center">
-            <p>Paragraph 1 in Div 2</p>
-            <p>Paragraph 2 in Div 2</p>
-            <p>Paragraph 3 in Div 2</p>
-            <button class="btn btn-secondary" onclick="transition('q{{question}}', 'questionMenu','back')">Back</button>
+            <div class="row gy-5">
+                <button class="btn btn-primary rounded-circle" onclick="transition('q{{question}}', 'questionMenu','back')">
+                    <i class="bi bi-arrow-left"></i>
+                </button>
+            </div>
+            <div class="row gy-5">
+                <div class="col-12">
+                    <h3>Question {{ question }}</h3>
+                </div>
+            </div>
+
+            {% for alternative in ['A', 'B', 'C', 'D'] %}
+            <div class="row gy-5">
+                <div class="col-12">
+                    <button id="buttonA" class="btn btn-primary btn-block alternativeButton" data-id="{{question}}{{alternative}}">{{alternative}}</button>
+                </div>
+            </div>
+            {% endfor %}
+            
+            <div class="row gy-5">
+                <div class="col-12">
+                    <div class="info">
+                        <p>Find the best answer. Long-press an alternative. </p>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 {% endfor %}
@@ -48,115 +76,8 @@
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    <script>
-        function transition_old(from, to, effect) {
-            const fromDiv = document.getElementById(from);
-            const toDiv = document.getElementById(to);
-
-            // Prepare the new div for the transition
-            toDiv.classList.remove('inactive-left', 'inactive-right', 'inactive-top', 'inactive-bottom');
-            toDiv.classList.add('active');
-
-            // Add the appropriate inactive class based on the effect
-            switch (effect) {
-                case 'forward':
-                    toDiv.style.left = '100%';
-                    fromDiv.classList.add('inactive-left');
-                    break;
-                case 'back':
-                    toDiv.style.left = '-100%';
-                    fromDiv.classList.add('inactive-right');
-                    break;
-                case 'top-down':
-                    toDiv.style.top = '100%';
-                    fromDiv.classList.add('inactive-top');
-                    break;
-                case 'bottom-up':
-                    toDiv.style.top = '-100%';
-                    fromDiv.classList.add('inactive-bottom');
-                    break;
-            }
-
-            // Trigger reflow to ensure the transition starts
-            void toDiv.offsetWidth;
-
-            // Start the transition
-            toDiv.style.left = '0';
-            toDiv.style.top = '0';
-
-            // Remove the inactive class from the old div after the transition
-            setTimeout(() => {
-                fromDiv.classList.remove('active', 'inactive-left', 'inactive-right', 'inactive-top', 'inactive-bottom');
-                fromDiv.style.left = '';
-                fromDiv.style.top = '';
-            }, 500); // Match the duration of the CSS transition
-        }
-        function transition_new(from, to, effect) {
-            const fromDiv = document.getElementById(from);
-            const toDiv = document.getElementById(to);
-
-            // Prepare the new div for the transition
-            toDiv.classList.remove('inactive-left', 'inactive-right', 'inactive-top', 'inactive-bottom');
-            toDiv.classList.add('active');
-
-            // Set initial position for the new div based on the effect
-            switch (effect) {
-                case 'forward':
-                    toDiv.style.left = '100%';
-                    fromDiv.style.left = '0';
-                    break;
-                case 'back':
-                    toDiv.style.left = '-100%';
-                    fromDiv.style.left = '0';
-                    break;
-            }
-
-            // Trigger reflow to ensure the transition starts
-            void toDiv.offsetWidth;
-
-            // Start the transition
-            toDiv.style.left = '0';
-            fromDiv.style.left = effect === 'forward' ? '-100%' : '100%';
-
-            // Clean up classes after the transition
-            setTimeout(() => {
-                fromDiv.classList.remove('active');
-                fromDiv.style.left = '';
-                toDiv.classList.remove('inactive-left', 'inactive-right', 'inactive-top', 'inactive-bottom');
-            }, 500); // Match the duration of the CSS transition
-        }
-        function transition(from, to, direction) {
-            const fromDiv = document.getElementById(from);
-            const toDiv = document.getElementById(to);
-
-            // Prepare the new div for the transition
-            toDiv.classList.remove('inactive-left', 'inactive-right');
-            toDiv.classList.add('active');
-
-            // Set initial position for the new div based on the direction
-            if (direction === 'forward') {
-                toDiv.style.left = '100%';
-                fromDiv.style.left = '0';
-            } else if (direction === 'back') {
-                toDiv.style.left = '-100%';
-                fromDiv.style.left = '0';
-            }
-
-            // Trigger reflow to ensure the transition starts
-            void toDiv.offsetWidth;
-
-            // Start the transition
-            toDiv.style.left = '0';
-            fromDiv.style.left = direction === 'forward' ? '-100%' : '100%';
-
-            // Clean up classes after the transition
-            setTimeout(() => {
-                fromDiv.classList.remove('active');
-                fromDiv.classList.add(direction === 'forward' ? 'inactive-left' : 'inactive-right');
-                fromDiv.style.left = '';
-            }, 500); // Match the duration of the CSS transition
-        }
-    </script>
+    <script src="js/navigation.js"></script>
+    <script src="js/buttons.js"></script>
 </body>
 
 </html>
