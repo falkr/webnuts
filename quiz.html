@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multiple-Choice Quiz</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .transition-colors {
+            transition: background-color 0.3s, color 0.3s;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <div id="quiz-app" class="max-w-4xl mx-auto p-4">
+        <!-- Header with score and progress -->
+        <div class="mb-6 p-4 bg-white rounded-lg shadow-md">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                <div>
+                    <h1 class="text-2xl font-bold mb-2">Multiple-Choice Quiz</h1>
+                    <div class="text-gray-600">12 questions, 3 attempts per question</div>
+                </div>
+                
+                <div class="flex flex-col items-center">
+                    <div class="text-xl">
+                        Score: <span class="font-bold" id="current-score">0</span>
+                        <span class="text-gray-500">/60</span>
+                    </div>
+                    <div class="text-sm text-gray-600">
+                        Potential remaining: +<span id="potential-score">60</span> points
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Progress bar -->
+            <div class="mt-4">
+                <div class="flex justify-between text-sm mb-1">
+                    <span>Progress</span>
+                    <span id="completion-percentage">0%</span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-4">
+                    <div 
+                        id="progress-bar"
+                        class="bg-blue-500 rounded-full h-4" 
+                        style="width: 0%"
+                    ></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Question Grid -->
+        <div id="question-grid" class="grid grid-cols-3 md:grid-cols-4 gap-4">
+            <!-- Questions will be inserted here by JavaScript -->
+        </div>
+        
+        <!-- Question View -->
+        <div id="question-view" class="p-6 bg-white rounded-lg shadow-md hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold" id="question-title">Question</h2>
+                <button 
+                    id="back-to-grid"
+                    class="px-4 py-2 bg-gray-200 rounded hover:bg-gray-300"
+                >
+                    Back to Grid
+                </button>
+            </div>
+            
+            <div class="mb-6">
+                <p class="text-lg" id="question-text"></p>
+                
+                <div id="feedback" class="mt-4 p-3 rounded hidden">
+                    <!-- Feedback will be inserted here -->
+                </div>
+                
+                <div id="previous-attempts" class="mt-4 hidden">
+                    <p class="font-semibold">Previous attempts:</p>
+                    <div class="flex gap-2 mt-1" id="previous-attempts-list">
+                        <!-- Previous attempts will be inserted here -->
+                    </div>
+                </div>
+            </div>
+            
+            <div id="options-container" class="grid grid-cols-2 gap-4">
+                <!-- Options will be inserted here -->
+            </div>
+            
+            <div id="confirm-step" class="mt-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg hidden">
+                <p class="text-center mb-4">
+                    Are you sure you want to submit <strong id="selected-option-text"></strong> as your answer?
+                </p>
+                <div class="flex justify-center gap-4">
+                    <button
+                        id="confirm-answer"
+                        class="px-6 py-2 bg-green-500 text-white rounded hover:bg-green-600"
+                    >
+                        Confirm
+                    </button>
+                    <button
+                        id="cancel-confirm"
+                        class="px-6 py-2 bg-gray-300 rounded hover:bg-gray-400"
+                    >
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const TOTAL_QUESTIONS = 12;
+        const MAX_ATTEMPTS = 3;
+        const POINTS = {
+            1: 5,  // First attempt
+            2: 2,  // Second attempt
+            3: 1,  // Third attempt
+        };
+        const MAX_SCORE = TOTAL_QUESTIONS * POINTS[1];
+        
+        // State
+        let questions = [];
+        let currentQuestion = null;
+        let selectedOption = null;
+        
+        // DOM Elements
+        const questionGrid = document.getElementById('question-grid');
+        const questionView = document.getElementById('question-view');
+        const questionTitle = document.getElementById('question-title');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const confirmStep = document.getElementById('confirm-step');
+        const selectedOptionText = document.getElementById('selected-option-text');
+        const feedbackElement = document.getElementById('feedback');
+        const previousAttemptsContainer = document.getElementById('previous-attempts');
+        const previousAttemptsList = document.getElementById('previous-attempts-list');
+        const currentScoreElement = document.getElementById('current-score');
+        const potentialScoreElement = document.getElementById('potential-score');
+        const completionPercentageElement = document.getElementById('completion-percentage');
+        const progressBarElement = document.getElementById('progress-bar');
+        
+        // Initialize questions
+        function initializeQuestions() {
+            questions = Array(TOTAL_QUESTIONS).fill().map((_, idx) => ({
+                id: idx + 1,
+                text: `Question ${idx + 1}`,
+                options: ['A', 'B', 'C', 'D'],
+                correctAnswer: 'A', // Default correct answer is 'A' for all questions
+                attempts: 0,
+                solved: false,
+                previousAttempts: []
+            }));
+        }
+        
+        // Render question grid
+        function renderQuestionGrid() {
+            questionGrid.innerHTML = '';
+            
+            questions.forEach(q => {
+                const questionElement = document.createElement('div');
+                questionElement.className = `p-4 rounded-lg text-center cursor-pointer transition-colors ${
+                    q.solved 
+                        ? 'bg-green-100 hover:bg-green-200' 
+                        : q.attempts > 0 
+                            ? 'bg-yellow-100 hover:bg-yellow-200' 
+                            : 'bg-blue-100 hover:bg-blue-200'
+                }`;
+                
+                questionElement.innerHTML = `
+                    <div class="font-bold">Question ${q.id}</div>
+                    ${q.solved ? `<div class="text-sm text-green-700">Solved (+${POINTS[q.attempts]})</div>` : ''}
+                    ${!q.solved && q.attempts > 0 ? `<div class="text-sm text-yellow-700">${MAX_ATTEMPTS - q.attempts} attempts left</div>` : ''}
+                `;
+                
+                questionElement.addEventListener('click', () => handleSelectQuestion(q.id));
+                questionGrid.appendChild(questionElement);
+            });
+        }
+        
+        // Handle selecting a question
+        function handleSelectQuestion(questionId) {
+            currentQuestion = questions.find(q => q.id === questionId);
+            selectedOption = null;
+            
+            // Update UI for question view
+            questionTitle.textContent = `Question ${currentQuestion.id}`;
+            questionText.textContent = currentQuestion.text;
+            
+            // Reset feedback and confirm step
+            feedbackElement.classList.add('hidden');
+            feedbackElement.textContent = '';
+            confirmStep.classList.add('hidden');
+            
+            // Update previous attempts display
+            if (currentQuestion.attempts > 0 && !currentQuestion.solved) {
+                previousAttemptsContainer.classList.remove('hidden');
+                previousAttemptsList.innerHTML = '';
+                
+                currentQuestion.previousAttempts.forEach(option => {
+                    const attemptElement = document.createElement('span');
+                    attemptElement.className = 'inline-block px-3 py-1 bg-red-100 text-red-800 rounded';
+                    attemptElement.textContent = option;
+                    previousAttemptsList.appendChild(attemptElement);
+                });
+            } else {
+                previousAttemptsContainer.classList.add('hidden');
+            }
+            
+            // Render options
+            renderOptions();
+            
+            // Show question view, hide grid
+            questionView.classList.remove('hidden');
+            questionGrid.classList.add('hidden');
+        }
+        
+        // Render options
+        function renderOptions() {
+            optionsContainer.innerHTML = '';
+            
+            // Don't show options if the question is solved or max attempts reached
+            if (currentQuestion.solved || currentQuestion.attempts >= MAX_ATTEMPTS) {
+                optionsContainer.classList.add('hidden');
+                return;
+            }
+            
+            optionsContainer.classList.remove('hidden');
+            
+            currentQuestion.options.forEach(option => {
+                const isDisabled = currentQuestion.previousAttempts.includes(option);
+                const optionElement = document.createElement('button');
+                
+                optionElement.className = `p-4 text-center rounded-lg text-lg font-bold transition-colors ${
+                    isDisabled 
+                        ? 'bg-gray-200 text-gray-500 cursor-not-allowed' 
+                        : 'bg-blue-100 hover:bg-blue-200 cursor-pointer'
+                }`;
+                
+                optionElement.textContent = option;
+                
+                if (!isDisabled) {
+                    optionElement.addEventListener('click', () => handleSelectOption(option));
+                }
+                
+                optionsContainer.appendChild(optionElement);
+            });
+        }
+        
+        // Handle selecting an option
+        function handleSelectOption(option) {
+            selectedOption = option;
+            selectedOptionText.textContent = option;
+            confirmStep.classList.remove('hidden');
+            optionsContainer.classList.add('hidden');
+        }
+        
+        // Handle confirming an answer
+        function handleConfirmAnswer() {
+            if (!selectedOption) return;
+            
+            // Update the current question
+            const updatedAttempts = currentQuestion.attempts + 1;
+            const isCorrect = selectedOption === currentQuestion.correctAnswer;
+            currentQuestion.previousAttempts.push(selectedOption);
+            
+            // Update feedback
+            feedbackElement.classList.remove('hidden', 'bg-green-100', 'text-green-800', 'bg-red-100', 'text-red-800');
+            
+            if (isCorrect) {
+                feedbackElement.textContent = `Correct! You earned ${POINTS[updatedAttempts]} points.`;
+                feedbackElement.classList.add('bg-green-100', 'text-green-800');
+            } else if (updatedAttempts >= MAX_ATTEMPTS) {
+                feedbackElement.textContent = `Incorrect. No more attempts. The correct answer was ${currentQuestion.correctAnswer}.`;
+                feedbackElement.classList.add('bg-red-100', 'text-red-800');
+            } else {
+                feedbackElement.textContent = `Incorrect. You have ${MAX_ATTEMPTS - updatedAttempts} attempts remaining.`;
+                feedbackElement.classList.add('bg-red-100', 'text-red-800');
+            }
+            
+            // Update question status
+            currentQuestion.attempts = updatedAttempts;
+            currentQuestion.solved = isCorrect || updatedAttempts >= MAX_ATTEMPTS;
+            
+            // Update the questions array
+            const questionIndex = questions.findIndex(q => q.id === currentQuestion.id);
+            questions[questionIndex] = currentQuestion;
+            
+            // Reset UI
+            confirmStep.classList.add('hidden');
+            selectedOption = null;
+            
+            // Update previous attempts display
+            if (currentQuestion.attempts > 0 && !currentQuestion.solved) {
+                previousAttemptsContainer.classList.remove('hidden');
+                previousAttemptsList.innerHTML = '';
+                
+                currentQuestion.previousAttempts.forEach(option => {
+                    const attemptElement = document.createElement('span');
+                    attemptElement.className = 'inline-block px-3 py-1 bg-red-100 text-red-800 rounded';
+                    attemptElement.textContent = option;
+                    previousAttemptsList.appendChild(attemptElement);
+                });
+            }
+            
+            // Render options
+            renderOptions();
+            
+            // Update score and progress
+            updateScoreAndProgress();
+        }
+        
+        // Handle canceling confirm
+        function handleCancelConfirm() {
+            confirmStep.classList.add('hidden');
+            optionsContainer.classList.remove('hidden');
+            selectedOption = null;
+        }
+        
+        // Handle back to grid
+        function handleBackToGrid() {
+            questionView.classList.add('hidden');
+            questionGrid.classList.remove('hidden');
+            currentQuestion = null;
+            
+            // Update the grid to reflect any changes
+            renderQuestionGrid();
+        }
+        
+        // Calculate current score
+        function calculateCurrentScore() {
+            return questions.reduce((sum, q) => {
+                if (q.solved) {
+                    return sum + POINTS[q.attempts];
+                }
+                return sum;
+            }, 0);
+        }
+        
+        // Calculate potential remaining score
+        function calculatePotentialRemainingScore() {
+            return questions.reduce((sum, q) => {
+                if (!q.solved) {
+                    // If not solved, can get at most POINTS[attempts+1]
+                    const possiblePoints = q.attempts < MAX_ATTEMPTS ? POINTS[q.attempts + 1] : 0;
+                    return sum + possiblePoints;
+                }
+                return sum;
+            }, 0);
+        }
+        
+        // Calculate completion percentage
+        function calculateCompletionPercentage() {
+            return Math.round(
+                (questions.filter(q => q.solved).length / TOTAL_QUESTIONS) * 100
+            );
+        }
+        
+        // Update score and progress displays
+        function updateScoreAndProgress() {
+            const currentScore = calculateCurrentScore();
+            const potentialRemainingScore = calculatePotentialRemainingScore();
+            const completionPercentage = calculateCompletionPercentage();
+            
+            currentScoreElement.textContent = currentScore;
+            potentialScoreElement.textContent = potentialRemainingScore;
+            completionPercentageElement.textContent = `${completionPercentage}%`;
+            progressBarElement.style.width = `${completionPercentage}%`;
+        }
+        
+        // Initialize the app
+        function initApp() {
+            initializeQuestions();
+            renderQuestionGrid();
+            updateScoreAndProgress();
+            
+            // Add event listeners
+            document.getElementById('back-to-grid').addEventListener('click', handleBackToGrid);
+            document.getElementById('confirm-answer').addEventListener('click', handleConfirmAnswer);
+            document.getElementById('cancel-confirm').addEventListener('click', handleCancelConfirm);
+        }
+        
+        // Start the app when the page loads
+        window.addEventListener('load', initApp);
+    </script>
+</body>
+</html>
